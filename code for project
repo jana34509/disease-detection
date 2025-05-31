@@ -1,0 +1,333 @@
+#define REMOTEXY_MODE__WIFI_POINT
+
+#include <WiFi.h>
+
+// RemoteXY connection settings 
+#define REMOTEXY_WIFI_SSID "jana"
+#define REMOTEXY_WIFI_PASSWORD "122345678"
+#define REMOTEXY_SERVER_PORT 6377
+
+
+#include <RemoteXY.h>
+
+// RemoteXY GUI configuration  
+#pragma pack(push, 1)  
+uint8_t RemoteXY_CONF[] =   // 130 bytes
+  { 255,0,0,8,0,123,0,19,0,0,0,84,104,101,32,112,111,116,97,116,
+  111,32,102,105,101,108,100,0,43,1,106,200,2,1,0,3,0,129,26,8,
+  51,12,64,26,72,117,109,105,100,105,116,121,32,0,68,4,84,100,47,49,
+  24,44,86,97,114,105,97,98,108,101,32,49,0,131,35,167,40,14,2,25,
+  2,44,80,97,103,101,32,49,0,4,2,0,129,18,15,68,12,64,26,84,
+  101,109,112,101,114,97,116,117,114,101,0,68,4,83,100,47,49,8,44,86,
+  97,114,105,97,98,108,101,32,50,0 };
+  
+// this structure defines all the variables and events of your control interface 
+struct {
+
+    // output variables
+  float humi;
+  float TempC;
+
+    // other variable
+  uint8_t connect_flag;  // =1 if wire connected, else =0
+
+} RemoteXY;   
+#pragma pack(pop)
+ 
+/////////////////////////////////////////////
+//           END RemoteXY include          //
+/////////////////////////////////////////////
+
+#include <HTTP_Method.h>
+#include <Uri.h>
+#include <WebServer.h>
+#include <DHT.h>
+#define DHT22_PIN  19 // ESP32 pin GPIO21 connected to DHT22 sensor
+#define S0 5
+#define S1 18
+#define S2 2
+#define S3 4
+#define sensorOut 15
+
+
+// Stores frequency read by the photodiodes
+int redFrequency = 0;
+int greenFrequency = 0;
+int blueFrequency = 0;
+
+// Stores the red. green and blue colors
+int redColor = 0;
+int greenColor = 0;
+int blueColor = 0;
+
+
+DHT dht22(DHT22_PIN, DHT22);
+
+#include <dummy.h>
+
+#include <AsyncEventSource.h>
+#include <AsyncJson.h>
+#include <AsyncWebSocket.h>
+#include <AsyncWebSynchronization.h>
+#include <ESPAsyncWebServer.h>
+#include <SPIFFSEditor.h>
+#include <StringArray.h>
+#include <WebAuthentication.h>
+#include <WebHandlerImpl.h>
+#include <WebResponseImpl.h>
+
+
+#include <WiFi.h>
+#include <WiFiClient.h>
+
+const char* ssid     = "jana";
+const char* password = "122345678";
+
+const char* host = "api.pushingbox.com";
+const char* devid = "v285A48EDE2AEA79";
+const char* devid2 = "v310C4EE10651C2B";
+const char* devid3 = "vE5BC9E1423A597D";
+
+void setup()
+{
+    RemoteXY_Init (); 
+
+    Serial.begin(115200);
+    delay(10);
+    dht22.begin(); 
+
+    // We start by connecting to a WiFi network
+
+    Serial.println();
+    Serial.println();
+    Serial.print("Connecting to ");
+    Serial.println(ssid);
+
+    WiFi.begin(ssid, password);
+
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+       
+    }
+
+    Serial.println("");
+    Serial.println("WiFi connected");
+    Serial.println("IP address: ");
+    Serial.println(WiFi.localIP());
+    // Setting the outputs
+  pinMode(S0, OUTPUT);
+  pinMode(S1, OUTPUT);
+  pinMode(S2, OUTPUT);
+  pinMode(S3, OUTPUT);
+  
+  // Setting the sensorOut as an input
+  pinMode(sensorOut, INPUT);
+  
+  // Setting frequency scaling to 20%
+  digitalWrite(S0,HIGH);
+  digitalWrite(S1,LOW);
+  
+}
+
+
+void loop()
+{ 
+    RemoteXY_Handler ();
+
+  // Setting RED (R) filtered photodiodes to be read
+  digitalWrite(S2,LOW);
+  digitalWrite(S3,LOW);
+  
+  // Reading the output frequency
+  redFrequency = pulseIn(sensorOut, LOW);
+  
+  
+  // Printing the RED (R) value
+  Serial.print("R = ");
+  Serial.print(redFrequency);
+  delay(2000);
+  
+  // Setting GREEN (G) filtered photodiodes to be read
+  digitalWrite(S2,HIGH);
+  digitalWrite(S3,HIGH);
+  
+  // Reading the output frequency
+  greenFrequency = pulseIn(sensorOut, LOW);
+  
+  
+  // Printing the GREEN (G) value  
+  Serial.print(" G = ");
+  Serial.print(greenFrequency);
+  delay(2000);
+  // Setting BLUE (B) filtered photodiodes to be read
+  digitalWrite(S2,LOW);
+  digitalWrite(S3,HIGH);
+  
+  // Reading the output frequency
+  blueFrequency = pulseIn(sensorOut, LOW);
+  
+  
+  // Printing the BLUE (B) value 
+  Serial.print(" B = ");
+  Serial.print(blueFrequency);
+  delay(2000);
+ Serial.println(" ");
+
+  
+    delay(5000);
+   // read humidity
+  float humi  = dht22.readHumidity();
+  // read temperature in Celsius
+  float tempC = dht22.readTemperature();
+  // read temperature in Fahrenheit
+  float tempF = dht22.readTemperature(true);
+    if ( isnan(tempC) || isnan(tempF) || isnan(humi)) {
+    Serial.println("Failed to read from DHT22 sensor!");
+  } else {
+    //Serial.print("Humidity: ");
+    Serial.print(humi);
+    //Serial.print("%");
+
+    Serial.print("  , ");
+
+    //Serial.print("Temperature: ");
+    Serial.print(tempC);
+    //Serial.print("°C  ~  ");
+    //Serial.print(tempF);
+    //Serial.println("°F");
+    Serial.println();
+  }
+RemoteXY.humi=float(humi);
+ RemoteXY.TempC=float(tempC);
+  
+  // wait a 2 seconds between readings
+  delay(30000);
+
+    if(10 <tempC < 25||humi>87 || 366<redFrequency<455&& 340<greenFrequency<437&& 270<blueFrequency<387){  //value from sensor if dry
+
+    Serial.print("connecting to ");
+    Serial.println(host);
+
+    // Use WiFiClient class to create TCP connections
+    WiFiClient client;
+    const int httpPort = 80;
+    if (!client.connect(host, httpPort)) {
+        Serial.println("connection failed");
+        return;
+    }
+
+    // We now create a URI for the request
+    String url = "/pushingbox";
+    url += "?devid=";
+    url += devid;
+    
+    Serial.print("Requesting URL: ");
+    Serial.println(url);
+
+    // This will send the request to the server
+    client.print(String("GET ") + url + " HTTP/1.1\r\n" +
+                 "Host: " + host + "\r\n" +
+                 "Connection: close\r\n\r\n");
+    unsigned long timeout = millis();
+    while (client.available() == 0) {
+        if (millis() - timeout > 5000) {
+            Serial.println(">>> Client Timeout !");
+            client.stop();
+            return;
+        }
+    }
+
+    // Read all the lines of the reply from server and print them to Serial
+    while(client.available()) {
+        String line = client.readStringUntil('\r');
+        Serial.print(line);
+    } 
+    Serial.println();
+    Serial.println("closing connection");
+    }else{;}
+if(15 <tempC < 23||80<humi<88 || 195<redFrequency<205&& 228<greenFrequency<245&& 255<blueFrequency<264){  //value from sensor if dry
+
+    Serial.print("connecting to ");
+    Serial.println(host);
+
+    // Use WiFiClient class to create TCP connections
+    WiFiClient client;
+    const int httpPort = 80;
+    if (!client.connect(host, httpPort)) {
+        Serial.println("connection failed");
+        return;
+    }
+
+    // We now create a URI for the request
+    String url = "/pushingbox";
+    url += "?devid2=";
+    url += devid2;
+    
+    Serial.print("Requesting URL: ");
+    Serial.println(url);
+
+    // This will send the request to the server
+    client.print(String("GET ") + url + " HTTP/1.1\r\n" +
+                 "Host: " + host + "\r\n" +
+                 "Connection: close\r\n\r\n");
+    unsigned long timeout = millis();
+    while (client.available() == 0) {
+        if (millis() - timeout > 5000) {
+            Serial.println(">>> Client Timeout !");
+            client.stop();
+            return;
+        }
+    }
+
+    // Read all the lines of the reply from server and print them to Serial
+    while(client.available()) {
+        String line = client.readStringUntil('\r');
+        Serial.print(line);
+    }
+    Serial.println();
+    Serial.println("closing connection");
+    }else{;}
+    if(20 <tempC < 27||60<humi<80 || 180<redFrequency<195&& 179<greenFrequency<198&& 182<blueFrequency<200){  //value from sensor if dry
+
+    Serial.print("connecting to ");
+    Serial.println(host);
+
+    // Use WiFiClient class to create TCP connections
+    WiFiClient client;
+    const int httpPort = 80;
+    if (!client.connect(host, httpPort)) {
+        Serial.println("connection failed");
+        return;
+    }
+
+    // We now create a URI for the request
+    String url = "/pushingbox";
+    url += "?devid3=";
+    url += devid3;
+    
+    Serial.print("Requesting URL: ");
+    Serial.println(url);
+
+    // This will send the request to the server
+    client.print(String("GET ") + url + " HTTP/1.1\r\n" +
+                 "Host: " + host + "\r\n" +
+                 "Connection: close\r\n\r\n");
+    unsigned long timeout = millis();
+    while (client.available() == 0) {
+        if (millis() - timeout > 5000) {
+            Serial.println(">>> Client Timeout !");
+            client.stop();
+            return;
+        }
+    }
+
+    // Read all the lines of the reply from server and print them to Serial
+    while(client.available()) {
+        String line = client.readStringUntil('\r');
+        Serial.print(line);
+    }
+    Serial.println();
+    Serial.println("closing connection");
+    }else{;}
+}
